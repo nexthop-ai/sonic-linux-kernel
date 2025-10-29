@@ -3,6 +3,8 @@ From: Yazen Ghannam <yazen.ghannam@amd.com>
 Date: Tue, 22 Apr 2025 18:48:30 -0500
 Subject: [PATCH 1/2] x86/CPU/AMD: Print the reason for the last reset
 
+[ Upstream commit ab8131028710d009ab93d6bffd2a2749ade909b0 ]
+
 The following register contains bits that indicate the cause for the
 previous reset.
 

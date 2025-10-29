@@ -3,6 +3,8 @@ From: Yazen Ghannam <yazen.ghannam@amd.com>
 Date: Mon, 21 Jul 2025 18:11:54 +0000
 Subject: [PATCH 2/2] x86/CPU/AMD: Ignore invalid reset reason value
 
+[ Upstream commit e9576e078220c50ace9e9087355423de23e25fa5 ]
+
 The reset reason value may be "all bits set", e.g. 0xFFFFFFFF. This is a
 commonly used error response from hardware. This may occur due to a real
 hardware issue or when running in a VM.
