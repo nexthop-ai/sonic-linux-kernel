@@ -1,0 +1,50 @@
+From 6cef50d6cb3958cf73a6fb8c440aa87636c4a9f8 Mon Sep 17 00:00:00 2001
+From: Ashish Yadav <ashish.yadav@infineon.com>
+Date: Mon, 23 Feb 2026 10:38:03 +0530
+Subject: [PATCH 17/22] hwmon: (pmbus/core) Add support for NVIDIA nvidia195mv
+ mode
+
+Extend the PMBus core vrm_version handling to support NVIDIA nvidia195mv
+VID mode. This adds a new VRM/VID encoding type and the corresponding
+voltage conversion logic so devices reporting nvidia195mv can have their
+VOUT/VID values interpreted correctly by the hwmon PMBus core.
+
+Signed-off-by: Ashish Yadav <ashish.yadav@infineon.com>
+Link: https://lore.kernel.org/r/20260223050804.4287-3-Ashish.Yadav@infineon.com
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/hwmon/pmbus/pmbus.h      | 2 +-
+ drivers/hwmon/pmbus/pmbus_core.c | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/hwmon/pmbus/pmbus.h b/drivers/hwmon/pmbus/pmbus.h
+index d605412a3173..1f6c46ed597b 100644
+--- a/drivers/hwmon/pmbus/pmbus.h
++++ b/drivers/hwmon/pmbus/pmbus.h
+@@ -416,7 +416,7 @@ enum pmbus_sensor_classes {
+ #define PMBUS_PAGE_VIRTUAL	BIT(31)	/* Page is virtual */
+ 
+ enum pmbus_data_format { linear = 0, ieee754, direct, vid };
+-enum vrm_version { vr11 = 0, vr12, vr13, imvp9, amd625mv };
++enum vrm_version { vr11 = 0, vr12, vr13, imvp9, amd625mv, nvidia195mv };
+ 
+ /* PMBus revision identifiers */
+ #define PMBUS_REV_10 0x00	/* PMBus revision 1.0 */
+diff --git a/drivers/hwmon/pmbus/pmbus_core.c b/drivers/hwmon/pmbus/pmbus_core.c
+index 41c66ece5177..a856a1cc5ea7 100644
+--- a/drivers/hwmon/pmbus/pmbus_core.c
++++ b/drivers/hwmon/pmbus/pmbus_core.c
+@@ -881,6 +881,10 @@ static s64 pmbus_reg2data_vid(struct pmbus_data *data,
+ 		if (val >= 0x0 && val <= 0xd8)
+ 			rv = DIV_ROUND_CLOSEST(155000 - val * 625, 100);
+ 		break;
++	case nvidia195mv:
++		if (val >= 0x01)
++			rv = 195 + (val - 1) * 5;  /* VID step is 5mv */
++		break;
+ 	}
+ 	return rv;
+ }
+-- 
+2.53.0
+
