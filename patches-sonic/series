@@ -225,6 +225,9 @@ driver-tty-serial-8250-add-support-for-fintek-F81214E.patch # Linux upstream pen
 0016-i2c-xiic-skip-input-clock-setup-on-non-OF-systems.patch
 0017-hwmon-pmbus-core-Add-support-for-NVIDIA-nvidia195mv-.patch
 0018-hwmon-pmbus-xdpe1a2g7b-Add-support-for-xdpe1a2g5b-7b.patch
+0019-i2c-xiic-preserve-PEC-byte-length-in-SMBus-block-rea.patch
+0020-i2c-xiic-defer-RX_FULL-until-all-trailing-bytes-are-.patch
+0021-i2c-xiic-don-t-clobber-msg-len-to-signal-block-read-.patch
 
 # Fix to avoid kernel panic on Kernel 6.1.94
 # https://github.com/sonic-net/sonic-buildimage/issues/20901
