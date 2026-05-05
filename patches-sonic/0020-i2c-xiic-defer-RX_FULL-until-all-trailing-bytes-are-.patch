@@ -1,0 +1,46 @@
+From 74afb7b5441601608b2a72087697ffe897a6c47f Mon Sep 17 00:00:00 2001
+From: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Date: Thu, 23 Apr 2026 18:10:13 -0700
+Subject: [PATCH 20/22] i2c: xiic: defer RX_FULL until all trailing bytes are
+ in FIFO
+
+For the normal path of xiic_smbus_block_read_setup() (rxmsg_len less
+than IIC_RX_FIFO_DEPTH), RFD was programmed to rxmsg_len - 2, which
+fires the RX_FULL interrupt while the last payload byte is still in
+flight. xiic_read_rx()'s bytes_rem == 1 branch then sets NACK on that
+byte still on the wire, truncating the read in the PEC-enabled case.
+
+Raise the threshold so RX_FULL fires only once every remaining byte
+(payload plus optional PEC) is already buffered in the FIFO. That
+routes the drain through xiic_read_rx()'s bytes_rem == 0 path, which
+reads everything out and emits the stop cleanly. For the non-PEC path
+the full payload is still read out through the same bytes_rem == 0
+branch; the only user-visible change is that the controller waits one
+extra byte-time before servicing the interrupt.
+
+Signed-off-by: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+---
+ drivers/i2c/busses/i2c-xiic.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-xiic.c b/drivers/i2c/busses/i2c-xiic.c
+index 621e49a26c9b..4c32e1a558ef 100644
+--- a/drivers/i2c/busses/i2c-xiic.c
++++ b/drivers/i2c/busses/i2c-xiic.c
+@@ -559,11 +559,8 @@ static void xiic_smbus_block_read_setup(struct xiic_i2c *i2c)
+ 			rfd_set = 0;
+ 			i2c->rx_msg->len = SMBUS_BLOCK_READ_MIN_LEN;
+ 		} else {
+-			/*
+-			 * When Rx msg len less than Rx fifo capacity
+-			 * Receive fifo depth should set to Rx msg len minus 2
+-			 */
+-			rfd_set = rxmsg_len - 2;
++			/* Defer RX_FULL until all trailing bytes are in FIFO. */
++			rfd_set = rxmsg_len + pec_len - 1;
+ 			i2c->rx_msg->len = rxmsg_len + 1 + pec_len;
+ 		}
+ 		xiic_setreg8(i2c, XIIC_RFD_REG_OFFSET, rfd_set);
+-- 
+2.53.0
+
