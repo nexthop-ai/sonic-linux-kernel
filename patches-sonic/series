@@ -223,6 +223,35 @@ driver-tty-serial-8250-add-support-for-fintek-F81214E.patch # Linux upstream pen
 0014-i2c-xiic-cosmetic-use-resource-format-specifier-in-d.patch
 0015-i2c-xiic-use-numbered-adapter-registration.patch
 0016-i2c-xiic-skip-input-clock-setup-on-non-OF-systems.patch
+<<<<<<< HEAD
+=======
+0017-hwmon-pmbus-core-Add-support-for-NVIDIA-nvidia195mv-.patch
+0018-hwmon-pmbus-xdpe1a2g7b-Add-support-for-xdpe1a2g5b-7b.patch
+0019-i2c-xiic-preserve-PEC-byte-length-in-SMBus-block-rea.patch
+0020-i2c-xiic-defer-RX_FULL-until-all-trailing-bytes-are-.patch
+0021-i2c-xiic-don-t-clobber-msg-len-to-signal-block-read-.patch
+0022-i2c-mux-reg-use-device-property-accessors.patch
+0023-hwmon-pmbus-d1u74t-Add-Murata-D1U74T-PSU-driver.patch
+0024-hwmon-pmbus-Add-support-for-guarded-PMBus-lock.patch
+0025-hwmon-pmbus-adm1266-add-firmware_revision-debugfs-en.patch
+0026-hwmon-pmbus-adm1266-include-adapter-number-in-GPIO-l.patch
+0027-hwmon-pmbus-adm1266-seed-timestamp-from-the-real-tim.patch
+0028-hwmon-pmbus-adm1266-widen-blackbox-info-buffer-to-I2.patch
+0029-hwmon-pmbus-adm1266-reject-implausible-blackbox-reco.patch
+0030-hwmon-pmbus-adm1266-include-PEC-byte-in-pmbus_block_.patch
+0031-hwmon-pmbus-adm1266-bounce-blackbox-records-through-.patch
+0032-hwmon-pmbus-adm1266-cap-PDIO-scan-in-get_multiple-at.patch
+0033-hwmon-pmbus-adm1266-don-t-clobber-GPIO-bits-before-P.patch
+0034-hwmon-pmbus-adm1266-reject-short-block-read-response.patch
+0035-hwmon-pmbus-adm1266-register-the-gpio_chip-after-pmb.patch
+0036-hwmon-pmbus-adm1266-register-the-nvmem-device-after-.patch
+0037-hwmon-pmbus-adm1266-serialize-GPIO-PMBus-accesses-wi.patch
+0038-hwmon-pmbus-adm1266-serialize-NVMEM-blackbox-read-wi.patch
+0039-hwmon-pmbus-adm1266-serialize-sequencer_state-debugf.patch
+0040-hwmon-pmbus-adm1266-add-clear_blackbox-debugfs-entry.patch
+0041-hwmon-pmbus-adm1266-add-powerup_counter-debugfs-entr.patch
+0042-hwmon-pmbus-adm1266-add-rtc-debugfs-entry.patch
+>>>>>>> f59fbad (NOS-8833: backport d1u74t and adm1266 patches (#180))
 
 # Fix to avoid kernel panic on Kernel 6.1.94
 # https://github.com/sonic-net/sonic-buildimage/issues/20901

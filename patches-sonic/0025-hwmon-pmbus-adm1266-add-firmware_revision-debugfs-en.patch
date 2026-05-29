@@ -1,0 +1,82 @@
+From 0928cb26996bfc7330eab9ae3942031d67f60272 Mon Sep 17 00:00:00 2001
+From: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Date: Tue, 12 May 2026 11:56:24 -0700
+Subject: [PATCH 25/42] hwmon: (pmbus/adm1266) add firmware_revision debugfs
+ entry
+
+The ADM1266 reports its firmware revision via the IC_DEVICE_REV
+manufacturer-specific block-read command (0xAE, datasheet Rev. D
+Table 80). The first three returned bytes are the firmware
+major.minor.patch fields. This is useful when correlating field
+behaviour against ADI release notes; expose it through debugfs
+alongside the existing sequencer_state entry.
+
+The standard PMBus MFR_REVISION (0x9B) register is already exposed
+by pmbus_core's debugfs auto-create path and reports the
+manufacturer revision, which is a separate thing from the firmware
+running on the device.
+
+Signed-off-by: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Link: https://lore.kernel.org/r/20260512-adm1266-v3-1-a81a479b0bb0@nexthop.ai
+[groeck: Squashed patch adding serialization with pmbus_lock]
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/hwmon/pmbus/adm1266.c | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/drivers/hwmon/pmbus/adm1266.c b/drivers/hwmon/pmbus/adm1266.c
+index 2c4d94cc8729..2c2c374c0699 100644
+--- a/drivers/hwmon/pmbus/adm1266.c
++++ b/drivers/hwmon/pmbus/adm1266.c
+@@ -21,6 +21,7 @@
+ #include <linux/slab.h>
+ #include <linux/timekeeping.h>
+ 
++#define ADM1266_IC_DEVICE_REV	0xAE
+ #define ADM1266_BLACKBOX_CONFIG	0xD3
+ #define ADM1266_PDIO_CONFIG	0xD4
+ #define ADM1266_READ_STATE	0xD9
+@@ -331,6 +332,31 @@ static int adm1266_state_read(struct seq_file *s, void *pdata)
+ 	return 0;
+ }
+ 
++/*
++ * IC_DEVICE_REV (0xAE) returns an 8-byte block (datasheet Rev. D, Table 80):
++ *   [2:0] firmware revision  major.minor.patch
++ *   [5:3] bootloader revision major.minor.patch
++ *   [7:6] silicon revision    two ASCII characters
++ */
++static int adm1266_firmware_revision_read(struct seq_file *s, void *pdata)
++{
++	struct device *dev = s->private;
++	struct i2c_client *client = to_i2c_client(dev);
++	u8 buf[I2C_SMBUS_BLOCK_MAX];
++	int ret;
++
++	guard(pmbus_lock)(client);
++	ret = i2c_smbus_read_block_data(client, ADM1266_IC_DEVICE_REV, buf);
++	if (ret < 0)
++		return ret;
++	if (ret < 3)
++		return -EIO;
++
++	seq_printf(s, "%u.%u.%u\n", buf[0], buf[1], buf[2]);
++
++	return 0;
++}
++
+ static void adm1266_init_debugfs(struct adm1266_data *data)
+ {
+ 	struct dentry *root;
+@@ -343,6 +369,8 @@ static void adm1266_init_debugfs(struct adm1266_data *data)
+ 
+ 	debugfs_create_devm_seqfile(&data->client->dev, "sequencer_state", data->debugfs_dir,
+ 				    adm1266_state_read);
++	debugfs_create_devm_seqfile(&data->client->dev, "firmware_revision", data->debugfs_dir,
++				    adm1266_firmware_revision_read);
+ }
+ 
+ static int adm1266_nvmem_read_blackbox(struct adm1266_data *data, u8 *read_buff)
+-- 
+2.53.0
+

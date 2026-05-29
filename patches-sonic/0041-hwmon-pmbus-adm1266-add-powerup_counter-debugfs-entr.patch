@@ -1,0 +1,88 @@
+From 7d08f9471aa91a542408f51bdb5ab0be7d58908a Mon Sep 17 00:00:00 2001
+From: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Date: Wed, 20 May 2026 15:42:41 -0700
+Subject: [PATCH 41/42] hwmon: (pmbus/adm1266) add powerup_counter debugfs
+ entry
+
+The ADM1266 maintains a 16-bit non-volatile POWERUP_COUNTER register
+(0xE4, datasheet Rev. D, Table 93) that increments on every power
+cycle and cannot be reset by the host. Each blackbox record already
+embeds the counter at record time, so the standalone live value is
+primarily useful for matching a captured record back to the boot it
+came from when correlating logs.
+
+Expose it as a read-only debugfs file alongside sequencer_state. The
+block-read returns two payload bytes in little-endian order.
+
+Take pmbus_lock around the block-read so the access serialises with
+any pmbus_core sequence that sets PAGE on the device. Without it, a
+PAGE write from another thread could interleave between a PAGE set
+and a paged read elsewhere in the driver and corrupt either side's
+view of the device state machine.
+
+Signed-off-by: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Assisted-by: Claude-Code:claude-opus-4-7
+Assisted-by: sashiko:gemini-3.1-pro-preview
+Link: https://lore.kernel.org/r/20260520-adm1266-v5-2-c72ef1fac1ea@nexthop.ai
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/hwmon/pmbus/adm1266.c | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/drivers/hwmon/pmbus/adm1266.c b/drivers/hwmon/pmbus/adm1266.c
+index 33a10e56d602..9a18ccb1094e 100644
+--- a/drivers/hwmon/pmbus/adm1266.c
++++ b/drivers/hwmon/pmbus/adm1266.c
+@@ -28,6 +28,7 @@
+ #define ADM1266_READ_BLACKBOX	0xDE
+ #define ADM1266_SET_RTC		0xDF
+ #define ADM1266_GPIO_CONFIG	0xE1
++#define ADM1266_POWERUP_COUNTER	0xE4
+ #define ADM1266_BLACKBOX_INFO	0xE6
+ #define ADM1266_PDIO_STATUS	0xE9
+ #define ADM1266_GPIO_STATUS	0xEA
+@@ -371,6 +372,32 @@ static int adm1266_firmware_revision_read(struct seq_file *s, void *pdata)
+ 	return 0;
+ }
+ 
++/*
++ * POWERUP_COUNTER (0xE4) is a 2-byte little-endian non-volatile counter
++ * that increments on every device power cycle (datasheet Rev. D, Table
++ * 93). It saturates at 65535 and cannot be reset by the host. Each
++ * blackbox record embeds the counter value at record time, so this live
++ * read is mainly useful for matching a record back to its boot.
++ */
++static int adm1266_powerup_counter_read(struct seq_file *s, void *pdata)
++{
++	struct device *dev = s->private;
++	struct i2c_client *client = to_i2c_client(dev);
++	u8 buf[I2C_SMBUS_BLOCK_MAX];
++	int ret;
++
++	guard(pmbus_lock)(client);
++	ret = i2c_smbus_read_block_data(client, ADM1266_POWERUP_COUNTER, buf);
++	if (ret < 0)
++		return ret;
++	if (ret != 2)
++		return -EIO;
++
++	seq_printf(s, "%u\n", buf[0] | (buf[1] << 8));
++
++	return 0;
++}
++
+ /*
+  * Clearing the blackbox is required when the device is configured in
+  * single-recording mode (BLACKBOX_CONFIG[0] = 0): once the 32-record
+@@ -419,6 +446,8 @@ static void adm1266_init_debugfs(struct adm1266_data *data)
+ 				    adm1266_state_read);
+ 	debugfs_create_devm_seqfile(&data->client->dev, "firmware_revision", data->debugfs_dir,
+ 				    adm1266_firmware_revision_read);
++	debugfs_create_devm_seqfile(&data->client->dev, "powerup_counter", data->debugfs_dir,
++				    adm1266_powerup_counter_read);
+ 	debugfs_create_file("clear_blackbox", 0200, data->debugfs_dir, data->client,
+ 			    &adm1266_clear_blackbox_fops);
+ }
+-- 
+2.53.0
+

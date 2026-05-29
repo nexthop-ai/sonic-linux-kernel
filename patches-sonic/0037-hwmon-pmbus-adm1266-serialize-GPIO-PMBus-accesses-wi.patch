@@ -1,0 +1,63 @@
+From 4933cc0ea0736c7b68ffbf4492335acb4eccb9a1 Mon Sep 17 00:00:00 2001
+From: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Date: Mon, 18 May 2026 17:52:30 -0700
+Subject: [PATCH 37/42] hwmon: (pmbus/adm1266) serialize GPIO PMBus accesses
+ with pmbus_lock
+
+adm1266_gpio_get(), adm1266_gpio_get_multiple(), and
+adm1266_gpio_dbg_show() all issue PMBus reads against the device but
+none of them take pmbus_lock.  The pmbus_core framework holds
+pmbus_lock around its own multi-transaction sequences (notably the
+"set PAGE, then read paged register" pattern used by hwmon
+attributes), so an unlocked GPIO accessor can land between a PAGE
+write and the subsequent paged read in another thread and corrupt
+either side's view of the device state machine.
+
+Take pmbus_lock at the top of each of the three accessors via the
+scope-based guard().  The lock is uncontended in the common case and
+adds only a single mutex round-trip per call.
+
+Fixes: d98dfad35c38 ("hwmon: (pmbus/adm1266) Add support for GPIOs")
+Cc: stable@vger.kernel.org
+Signed-off-by: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Reviewed-by: Bartosz Golaszewski <bartosz.golaszewski@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260518-adm1266-gpio-fixes-v3-6-e425e4f88139@nexthop.ai
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/hwmon/pmbus/adm1266.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/hwmon/pmbus/adm1266.c b/drivers/hwmon/pmbus/adm1266.c
+index 019bc3f79298..841b7775d738 100644
+--- a/drivers/hwmon/pmbus/adm1266.c
++++ b/drivers/hwmon/pmbus/adm1266.c
+@@ -174,6 +174,8 @@ static int adm1266_gpio_get(struct gpio_chip *chip, unsigned int offset)
+ 	else
+ 		pmbus_cmd = ADM1266_PDIO_STATUS;
+ 
++	guard(pmbus_lock)(data->client);
++
+ 	ret = i2c_smbus_read_block_data(data->client, pmbus_cmd, read_buf);
+ 	if (ret < 0)
+ 		return ret;
+@@ -196,6 +198,8 @@ static int adm1266_gpio_get_multiple(struct gpio_chip *chip, unsigned long *mask
+ 	unsigned int gpio_nr;
+ 	int ret;
+ 
++	guard(pmbus_lock)(data->client);
++
+ 	ret = i2c_smbus_read_block_data(data->client, ADM1266_GPIO_STATUS, read_buf);
+ 	if (ret < 0)
+ 		return ret;
+@@ -237,6 +241,8 @@ static void adm1266_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
+ 	int ret;
+ 	int i;
+ 
++	guard(pmbus_lock)(data->client);
++
+ 	for (i = 0; i < ADM1266_GPIO_NR; i++) {
+ 		write_cmd = adm1266_gpio_mapping[i][1];
+ 		ret = adm1266_pmbus_block_xfer(data, ADM1266_GPIO_CONFIG, 1, &write_cmd, read_buf);
+-- 
+2.53.0
+

@@ -1,0 +1,56 @@
+From 8d01743eff3c489f78823c4c861c38e315acf74a Mon Sep 17 00:00:00 2001
+From: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Date: Mon, 18 May 2026 17:52:29 -0700
+Subject: [PATCH 36/42] hwmon: (pmbus/adm1266) register the nvmem device after
+ pmbus_do_probe()
+
+adm1266_probe() calls adm1266_config_nvmem() -- which goes on to
+devm_nvmem_register() and exposes adm1266_nvmem_read() to userspace --
+before pmbus_do_probe() has initialised the per-client PMBus state.
+
+Same latent hazard as the gpio_chip one fixed in the previous patch:
+once the nvmem device is registered, gpiolib's nvmem char-dev / sysfs
+interface is reachable, and any concurrent read triggers
+adm1266_nvmem_read() -> adm1266_nvmem_read_blackbox(), which issues
+PMBus traffic that races pmbus_do_probe()'s own device accesses with
+no serialisation.
+
+Move adm1266_config_nvmem() down past pmbus_do_probe() so the nvmem
+device isn't reachable from userspace until the PMBus state the
+nvmem accessors depend on is fully initialised.
+
+Fixes: 15609d189302 ("hwmon: (pmbus/adm1266) read blackbox")
+Cc: stable@vger.kernel.org
+Signed-off-by: Abdurrahman Hussain <abdurrahman@nexthop.ai>
+Link: https://lore.kernel.org/r/20260518-adm1266-gpio-fixes-v3-5-e425e4f88139@nexthop.ai
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ drivers/hwmon/pmbus/adm1266.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/hwmon/pmbus/adm1266.c b/drivers/hwmon/pmbus/adm1266.c
+index a50904bfe53d..019bc3f79298 100644
+--- a/drivers/hwmon/pmbus/adm1266.c
++++ b/drivers/hwmon/pmbus/adm1266.c
+@@ -505,14 +505,14 @@ static int adm1266_probe(struct i2c_client *client)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	ret = adm1266_config_nvmem(data);
+-	if (ret < 0)
+-		return ret;
+-
+ 	ret = pmbus_do_probe(client, &data->info);
+ 	if (ret)
+ 		return ret;
+ 
++	ret = adm1266_config_nvmem(data);
++	if (ret < 0)
++		return ret;
++
+ 	ret = adm1266_config_gpio(data);
+ 	if (ret < 0)
+ 		return ret;
+-- 
+2.53.0
+
